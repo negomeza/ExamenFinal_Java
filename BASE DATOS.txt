@@ -1,0 +1,103 @@
+CREATE DATABASE pos;
+
+CREATE TABLE vendedores (
+  codigo INT PRIMARY KEY AUTO_INCREMENT,
+  nombre VARCHAR(255),
+  caja INT,
+  ventas INT,
+  genero VARCHAR(10),
+  contrasenia VARCHAR(255)
+);
+
+CREATE TABLE productos (
+    codigo INT AUTO_INCREMENT,
+    nombre VARCHAR(255),
+    descripcion VARCHAR(255),
+    cantidad INT,
+    precio INT,
+    PRIMARY KEY (codigo)
+);
+
+CREATE TABLE clientes (
+  codigo INT AUTO_INCREMENT,
+  nombre VARCHAR(255),
+  nit VARCHAR(255),
+  correo VARCHAR(255),
+  genero VARCHAR(255),
+  PRIMARY KEY (codigo)
+);
+
+
+CREATE TABLE factura (
+codigo INT PRIMARY KEY AUTO_INCREMENT,
+fecha DATE DEFAULT CURRENT_DATE(),
+nombre VARCHAR(255),
+nit VARCHAR(255),
+total INT(11)
+);
+
+
+CREATE TABLE venta_detalle (
+  codigo_detalle INT PRIMARY KEY AUTO_INCREMENT,
+  codigo_factura INT,
+  codigo_producto INT,
+  nombre  VARCHAR(255),
+  codigo_cliente INT,
+  cantidad INT,
+  precio INT,
+  subtotal INT,
+  FOREIGN KEY (codigo_factura) REFERENCES factura(codigo),
+  FOREIGN KEY (codigo_producto) REFERENCES productos(codigo),
+  FOREIGN KEY (codigo_cliente) REFERENCES clientes(codigo)
+);
+
+
+/*Tabla temporal para insertar detalle*/
+
+CREATE TABLE venta_detalle_temp (
+  codigo_producto INT,
+  nombre  VARCHAR(255),
+  codigo_cliente INT,
+  cantidad INT,
+  precio INT,
+  subtotal INT GENERATED ALWAYS AS (cantidad * precio)
+  -- El modificador GENERATED ALWAYS indica que es una columna calculada.
+  -- La expresión (cantidad * precio) calcula el valor de la columna subtotal.
+  -- No es necesario definir una cláusula DEFAULT, ya que el valor se calcula automáticamente.
+);
+
+
+/*PROCEDIMIENTO ALMACENADO PARA REALIZAR LA VENTA*/
+
+DELIMITER //
+CREATE PROCEDURE registrar_venta(IN cliente VARCHAR(200), IN nit VARCHAR(200))
+BEGIN
+    DECLARE codigo_factura INT;
+    DECLARE total INT;
+
+    START TRANSACTION;
+    
+    -- Insertar en la tabla factura
+    INSERT INTO factura(total,nombre, nit) VALUES(0,cliente,nit);
+    SET codigo_factura = LAST_INSERT_ID();
+    
+    -- Insertar en la tabla venta_detall
+    INSERT INTO venta_detalle(codigo_factura, codigo_producto,nombre, codigo_cliente, cantidad, precio, subtotal)
+    SELECT codigo_factura, codigo_producto, nombre,codigo_cliente, cantidad, precio,subtotal FROM venta_detalle_temp;
+    
+    -- Actualizar el total de la factura
+    SELECT SUM(subtotal) INTO total FROM venta_detalle WHERE codigo_factura = codigo_factura;
+    UPDATE factura SET total = total WHERE codigo = codigo_factura;
+    
+    COMMIT;
+END //
+DELIMITER ;
+
+
+/*EXECUTE PROCEDURE*/
+
+CALL registrar_venta('heidy','4564d');
+
+
+
+
